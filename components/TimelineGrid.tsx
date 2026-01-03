@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Shot } from '../types';
 
 interface TimelineGridProps {
@@ -23,6 +23,9 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
   onStopBatch,
   isBatchGenerating 
 }) => {
+  const [editingShotId, setEditingShotId] = useState<string | null>(null);
+  const [tempPrompt, setTempPrompt] = useState("");
+
   const getAspectRatioClass = (ratio: string) => {
     switch(ratio) {
       case "16:9": return "aspect-video";
@@ -30,6 +33,27 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
       case "4:3": return "aspect-[4/3]";
       case "3:4": return "aspect-[3/4]";
       default: return "aspect-square";
+    }
+  };
+
+  const handleDownload = (imageUrl: string, shotNumber: number) => {
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = `shot-${String(shotNumber).padStart(2, '0')}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const openEditModal = (shot: Shot) => {
+    setEditingShotId(shot.id);
+    setTempPrompt(shot.prompt);
+  };
+
+  const savePrompt = () => {
+    if (editingShotId) {
+      onUpdateShotPrompt(editingShotId, tempPrompt);
+      setEditingShotId(null);
     }
   };
 
@@ -134,7 +158,10 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                 
                 {shot.generatedImageUrl && (
                   <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="p-2.5 bg-black/70 rounded-xl border border-white/10 backdrop-blur-xl hover:bg-orange-600 hover:text-white transition-all shadow-2xl">
+                    <button 
+                      onClick={() => handleDownload(shot.generatedImageUrl!, shot.number)}
+                      className="p-2.5 bg-black/70 rounded-xl border border-white/10 backdrop-blur-xl hover:bg-orange-600 hover:text-white transition-all shadow-2xl"
+                    >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                     </button>
                   </div>
@@ -153,19 +180,51 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                 )}
               </div>
 
-              <div className="bg-[#0d0d0d] border border-[#222] rounded-2xl p-4 shadow-lg group-hover:border-orange-500/20 transition-all flex-1 flex flex-col justify-between">
-                <div className="flex items-start gap-2">
-                  <span className="text-[9px] font-black text-orange-500 uppercase tracking-tighter italic mt-0.5">Prompt:</span>
-                  <textarea
-                    value={shot.prompt}
-                    onChange={(e) => onUpdateShotPrompt(shot.id, e.target.value)}
-                    className="w-full bg-transparent text-[9px] text-gray-300 leading-relaxed font-mono focus:outline-none resize-none min-h-[60px] scrollbar-none"
-                    placeholder="Nhập mô tả cho phân cảnh này..."
-                  />
+              <div className="bg-[#0d0d0d] border border-[#222] rounded-2xl p-4 shadow-lg group-hover:border-orange-500/20 transition-all flex-1 flex flex-col justify-between min-h-[100px]">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <span className="text-[9px] font-black text-orange-500 uppercase tracking-tighter italic block mb-1">Prompt:</span>
+                    <p className="text-[9px] text-gray-400 leading-relaxed font-mono line-clamp-4">
+                      {shot.prompt || "Chưa có mô tả..."}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => openEditModal(shot)}
+                    className="p-2 bg-[#1a1a1a] rounded-lg border border-[#333] hover:border-orange-500/50 transition-all text-gray-500 hover:text-orange-500 shrink-0"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Prompt Edit Modal */}
+      {editingShotId !== null && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-md p-6" onClick={() => setEditingShotId(null)}>
+          <div className="bg-[#111] border border-[#333] max-w-2xl w-full p-8 rounded-3xl shadow-2xl relative animate-in fade-in zoom-in-95" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+               <h3 className="text-[14px] font-black text-orange-500 uppercase tracking-[0.2em] italic">Chỉnh sửa Prompt - Shot #{shots.find(s => s.id === editingShotId)?.number}</h3>
+               <button onClick={() => setEditingShotId(null)} className="text-gray-500 hover:text-white transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+               </button>
+            </div>
+            <textarea
+              autoFocus
+              value={tempPrompt}
+              onChange={(e) => setTempPrompt(e.target.value)}
+              className="w-full h-48 bg-[#0a0a0a] border border-[#222] rounded-2xl p-6 text-[12px] text-gray-300 font-mono focus:outline-none focus:border-orange-500/50 resize-none shadow-inner leading-relaxed"
+              placeholder="Nhập mô tả chi tiết cho phân cảnh này..."
+            />
+            <div className="mt-8 flex gap-3">
+               <button onClick={() => setEditingShotId(null)} className="flex-1 py-3 border border-[#333] text-[10px] text-gray-500 uppercase font-black rounded-xl hover:bg-[#1a1a1a] transition-all">Hủy</button>
+               <button onClick={savePrompt} className="flex-1 py-3 bg-orange-600 text-white text-[10px] font-black uppercase rounded-xl hover:bg-orange-500 transition-all shadow-lg shadow-orange-900/20">Lưu thay đổi</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

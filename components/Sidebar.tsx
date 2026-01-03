@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { AppConfig, CharacterReference } from '../types';
 
 interface SidebarProps {
@@ -7,13 +7,33 @@ interface SidebarProps {
   setConfig: React.Dispatch<React.SetStateAction<AppConfig>>;
   characters: CharacterReference[];
   setCharacters: React.Dispatch<React.SetStateAction<CharacterReference[]>>;
-  onAddCharacter: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onAddCharacter: (e: React.ChangeEvent<HTMLInputElement> | { target: { files: FileList | null } }) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ config, setConfig, characters, setCharacters, onAddCharacter }) => {
+  const [isDragging, setIsDragging] = useState(false);
   const genres = [
     "Hoạt hình 2D Cartoon", "3D Pixar", "Ghibli", "Realistic Drama", "Cinematic Film", "TVC", "Tùy chỉnh"
   ];
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      onAddCharacter({ target: { files } } as any);
+    }
+  };
 
   return (
     <aside className="w-[300px] bg-[#0d0d0d] border-r border-[#222] flex flex-col overflow-y-auto p-6 gap-8">
@@ -82,7 +102,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ config, setConfig, characters,
           <h3 className="text-[11px] font-black text-gold uppercase tracking-[0.3em] border-l-2 border-gold pl-3">Nhân vật tham chiếu</h3>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div 
+          className={`grid grid-cols-2 gap-3 transition-all p-2 rounded-xl ${isDragging ? 'bg-gold/10 ring-2 ring-gold ring-dashed ring-offset-4 ring-offset-[#0d0d0d]' : ''}`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           {characters.map(char => (
             <div key={char.id} className="group relative aspect-square rounded-xl overflow-hidden border border-[#222] bg-[#111] shadow-lg">
               <img src={char.image} alt={char.name} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
@@ -103,12 +128,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ config, setConfig, characters,
             </div>
           ))}
 
-          <label className="flex flex-col items-center justify-center aspect-square border-2 border-dashed border-[#222] rounded-xl cursor-pointer hover:border-gold/50 transition-all bg-[#0d0d0d] group">
+          <label className={`flex flex-col items-center justify-center aspect-square border-2 border-dashed border-[#222] rounded-xl cursor-pointer hover:border-gold/50 transition-all bg-[#0d0d0d] group ${isDragging ? 'border-gold' : ''}`}>
             <input type="file" className="hidden" onChange={onAddCharacter} accept="image/*" />
             <div className="w-9 h-9 rounded-full bg-[#1a1a1a] flex items-center justify-center mb-2 group-hover:bg-gold/10 transition-colors shadow-inner">
               <span className="text-xl text-gray-600 group-hover:text-gold transition-colors">+</span>
             </div>
-            <span className="text-[7px] text-gray-600 uppercase tracking-widest font-black">Thêm nhân vật</span>
+            <span className="text-[7px] text-gray-600 uppercase tracking-widest font-black text-center px-2">Kéo thả hoặc Click</span>
           </label>
         </div>
       </section>
