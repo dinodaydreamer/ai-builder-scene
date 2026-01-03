@@ -11,6 +11,8 @@ const App: React.FC = () => {
   const [showHelp, setShowHelp] = useState(false);
   const [showScriptModal, setShowScriptModal] = useState(false);
   const [isBatchGenerating, setIsBatchGenerating] = useState(false);
+  const stopBatchRef = useRef(false);
+
   const [config, setConfig] = useState<AppConfig>({
     genre: 'Cinematic Film',
     customGenre: '',
@@ -45,6 +47,10 @@ const App: React.FC = () => {
     }
   }, [script]);
 
+  const handleUpdateShotPrompt = (id: string, newPrompt: string) => {
+    setShots(prev => prev.map(s => s.id === id ? { ...s, prompt: newPrompt } : s));
+  };
+
   const handleGenerateShot = async (shotId: string) => {
     if (!apiKey) {
       alert("Vui lòng nhập API Key ở menu trên cùng!");
@@ -75,17 +81,25 @@ const App: React.FC = () => {
     }
 
     setIsBatchGenerating(true);
+    stopBatchRef.current = false;
+
     for (const shot of shots) {
+      if (stopBatchRef.current) break;
+      
       // Only generate shots that don't have an image yet
       if (!shot.generatedImageUrl) {
         try {
           await handleGenerateShot(shot.id);
         } catch (e) {
           console.error(`Error generating shot ${shot.number}:`, e);
-          // Continue to next shot even if one fails
         }
       }
     }
+    setIsBatchGenerating(false);
+  };
+
+  const handleStopBatch = () => {
+    stopBatchRef.current = true;
     setIsBatchGenerating(false);
   };
 
@@ -170,13 +184,23 @@ const App: React.FC = () => {
             Kịch bản
           </button>
 
-          <button 
-            onClick={handleGenerateAll}
-            disabled={shots.length === 0 || isBatchGenerating}
-            className={`px-6 py-2.5 bg-gold text-black font-black text-[11px] rounded-full uppercase tracking-widest hover:bg-yellow-400 transition-all shadow-lg shadow-yellow-900/20 flex items-center gap-2 ${shots.length === 0 || isBatchGenerating ? 'opacity-30 cursor-not-allowed grayscale' : ''}`}
-          >
-            {isBatchGenerating ? 'Đang Render...' : 'Render Toàn Bộ'}
-          </button>
+          {isBatchGenerating ? (
+            <button 
+              onClick={handleStopBatch}
+              className="px-6 py-2.5 bg-red-600 text-white font-black text-[11px] rounded-full uppercase tracking-widest hover:bg-red-500 transition-all shadow-lg shadow-red-900/20 flex items-center gap-2"
+            >
+              <div className="w-2 h-2 bg-white rounded-sm"></div>
+              Dừng Render
+            </button>
+          ) : (
+            <button 
+              onClick={handleGenerateAll}
+              disabled={shots.length === 0}
+              className={`px-6 py-2.5 bg-gold text-black font-black text-[11px] rounded-full uppercase tracking-widest hover:bg-yellow-400 transition-all shadow-lg shadow-yellow-900/20 flex items-center gap-2 ${shots.length === 0 ? 'opacity-30 cursor-not-allowed grayscale' : ''}`}
+            >
+              Render Toàn Bộ
+            </button>
+          )}
 
           <button 
             onClick={() => setShowHelp(true)}
@@ -200,9 +224,11 @@ const App: React.FC = () => {
           <TimelineGrid 
             shots={shots} 
             onGenerateShot={handleGenerateShot} 
+            onUpdateShotPrompt={handleUpdateShotPrompt}
             aspectRatio={config.aspectRatio}
             onAddShot={handleAddShot}
             onGenerateAll={handleGenerateAll}
+            onStopBatch={handleStopBatch}
             isBatchGenerating={isBatchGenerating}
           />
         </main>
